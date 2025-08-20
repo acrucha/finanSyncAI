@@ -7,6 +7,7 @@
     "scripts": {
         "dev": "vite",
         "build": "vite build",
+        "postbuild": "tsx scripts/generate-env.ts",
         "preview": "vite preview",
         "start": "vite preview",
         "server": "tsx server/index.tsx",

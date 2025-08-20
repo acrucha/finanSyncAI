@@ -6,8 +6,9 @@ import { Alert, AlertDescription } from './components/ui/alert';
 import { FileUploader } from './components/FileUploader';
 import { SpreadsheetViewer } from './components/SpreadsheetViewer';
 import { LoadingState } from './components/LoadingState';
+import { env } from './public/env'; // Importa a variável de ambiente gerada
 
-const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'localhost:3000';
+const SERVER_URL = env.SERVER_URL || 'localhost:3000';
 console.log(`Server URL: ${SERVER_URL}`);
 
 interface Transaction {

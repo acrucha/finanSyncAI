@@ -144,3 +144,5 @@ storybook-static
 
 # Turbo
 .turbo
+
+client/public/env.ts
