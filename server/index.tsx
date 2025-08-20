@@ -156,7 +156,7 @@ Confiança: [0.0-1.0]
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -266,7 +266,7 @@ INCLUA TUDO que for movimentação financeira real.
 `;
 
   try {
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiApiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -333,69 +333,99 @@ INCLUA TUDO que for movimentação financeira real.
 }
 
 // Função para processar CSV
-function processCSV(csvContent: string): any[] {
+async function processCSV(csvContent: string): Promise<any[]> {
+  const geminiApiKey = process.env.GEMINI_API_KEY;
+  if (geminiApiKey) {
+    try {
+      console.log('🔍 Usando Gemini para processar CSV...');
+      const prompt = `\nAnalise este extrato bancário em CSV e extraia TODAS as transações encontradas.\nO arquivo pode ter diferentes formatos de bancos brasileiros (Bradesco, Itaú, Santander, Nubank, Inter, Caixa, etc).\n\nINSTRUÇÕES ESPECÍFICAS:\n1. Procure por TODAS as movimentações/transações no conteúdo, incluindo:\n   - Débitos (saídas, compras, transferências enviadas, saques, etc.)\n   - Créditos (entradas, salários, transferências recebidas, depósitos, etc.)\n   - PIX (enviados e recebidos)\n   - Cartão de débito/crédito\n   - DOCs e TEDs\n   - Boletos pagos\n   - Tarifas bancárias\n\n2. Para cada transação identifique:\n   - Data da transação (formato DD/MM/AAAA)\n   - Descrição/Histórico COMPLETO (inclua todos os detalhes disponíveis)\n   - Valor EXATO (positivo para créditos/entradas, negativo para débitos/saídas)\n\n3. IMPORTANTE sobre valores:\n   - Se o extrato mostra "- R$ 100,00" ou está em coluna de débito: use -100\n   - Se o extrato mostra "+ R$ 100,00" ou está em coluna de crédito: use 100\n   - Mantenha a precisão dos centavos\n\n4. IMPORTANTE sobre descrições:\n   - Mantenha o texto original do banco\n   - Inclua códigos de referência se houver\n   - Não abrevie ou simplifique\n\nResponda APENAS em formato JSON válido:\n{\n  "transactions": [\n    {\n      "date": "DD/MM/AAAA",\n      "description": "descrição completa exatamente como aparece",\n      "amount": valor_numerico_com_sinal_correto\n    }\n  ]\n}\n\nEXEMPLOS:\n- Bradesco: "PIX TRANSFERENCIA ENVIADA CHAVE EMAIL" → valor negativo\n- Itaú: "COMPRA CARTAO DEBITO SUPERMERCADO EXTRA" → valor negativo\n- Nubank: "Transferência enviada para João Silva" → valor negativo\n- Santander: "SALARIO EMPRESA LTDA" → valor positivo\n- Inter: "TED RECEBIDA DE MARIA SANTOS" → valor positivo\n\nNÃO inclua:\n- Saldos anteriores/posteriores\n- Títulos ou cabeçalhos\n- Linhas de resumo/totais\n- Informações de conta\n\nINCLUA TUDO que for movimentação financeira real.\n\nAQUI ESTÁ O CONTEÚDO DO CSV:\n\n"""\n${csvContent}\n"""\n`;
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-lite:generateContent?key=${geminiApiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }]
+        })
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Erro na API Gemini (CSV):', errorText);
+        throw new Error('Erro na API Gemini');
+      }
+      const data = await response.json();
+      const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+      console.log('Resposta do Gemini para CSV:', text.substring(0, 500) + '...');
+      let jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        jsonMatch = text.match(/\[[\s\S]*\]/);
+        if (jsonMatch) {
+          const arrayData = JSON.parse(jsonMatch[0]);
+          return Array.isArray(arrayData) ? arrayData : [];
+        }
+        throw new Error('Não foi possível extrair dados JSON da resposta do Gemini');
+      }
+      const extractedData = JSON.parse(jsonMatch[0]);
+      const transactions = extractedData.transactions || extractedData || [];
+      const validTransactions = transactions.filter((t: any) => {
+        if (!t.date || !t.description || typeof t.amount !== 'number') {
+          console.warn('Transação inválida ignorada:', t);
+          return false;
+        }
+        return true;
+      });
+      console.log(`CSV processado pelo Gemini: ${validTransactions.length} transações válidas`);
+      return validTransactions;
+    } catch (error) {
+      console.error('Erro ao processar CSV com Gemini:', error);
+      // fallback para parser local
+    }
+  }
+  // ...parser local (antigo)...
   const lines = csvContent.split('\n').filter(line => line.trim());
   const transactions: any[] = [];
-
   if (lines.length === 0) return transactions;
-
   console.log(`Processando CSV com ${lines.length} linhas`);
   console.log('Primeiras 3 linhas do CSV:', lines.slice(0, 3));
-
-  // Detecta o separador mais provável
   const firstLine = lines[0];
   const commaCount = (firstLine.match(/,/g) || []).length;
   const semicolonCount = (firstLine.match(/;/g) || []).length;
   const tabCount = (firstLine.match(/\t/g) || []).length;
-  
   let separator = ',';
   if (semicolonCount > commaCount && semicolonCount > tabCount) {
     separator = ';';
   } else if (tabCount > commaCount && tabCount > semicolonCount) {
     separator = '\t';
   }
-
   console.log(`Separador detectado: "${separator}" (vírgulas: ${commaCount}, ponto e vírgula: ${semicolonCount}, tabs: ${tabCount})`);
-
-  // Identifica o cabeçalho automaticamente
   let headerRowIndex = -1;
   const headerKeywords = ['data', 'desc', 'hist', 'valor', 'quantia', 'operacao', 'tipo', 'categoria'];
-  
   for (let i = 0; i < Math.min(5, lines.length); i++) {
     const columns = lines[i].toLowerCase().split(separator);
     const hasHeaderKeywords = columns.some(col => 
       headerKeywords.some(keyword => col.includes(keyword))
     );
-    
     if (hasHeaderKeywords) {
       headerRowIndex = i;
       console.log(`Cabeçalho identificado na linha ${i + 1}:`, columns);
       break;
     }
   }
-
-  const startRow = headerRowIndex >= 0 ? headerRowIndex + 1 : 1; // Pula cabeçalho ou primeira linha
+  const startRow = headerRowIndex >= 0 ? headerRowIndex + 1 : 1;
   console.log(`Iniciando processamento na linha ${startRow + 1}`);
-
   for (let i = startRow; i < lines.length; i++) {
     const line = lines[i].trim();
     if (!line) continue;
-
     const columns = line.split(separator).map(col => col.trim().replace(/^"|"$/g, ''));
-    
     if (columns.length < 2) {
       console.log(`Linha ${i + 1} ignorada (poucas colunas):`, columns);
       continue;
     }
-
     try {
-      // Tentativa de identificar data, descrição e valor em diferentes posições
       let date = '';
       let description = '';
       let amount = 0;
       let operationType = '';
-
-      // Estratégia 1: Procura por padrões de data nas primeiras colunas
       for (let col = 0; col < Math.min(3, columns.length); col++) {
         const cellValue = columns[col];
         if (isValidDate(cellValue)) {
@@ -403,8 +433,6 @@ function processCSV(csvContent: string): any[] {
           break;
         }
       }
-
-      // Estratégia 2: Procura por valores numéricos nas últimas colunas
       for (let col = columns.length - 1; col >= Math.max(columns.length - 4, 0); col--) {
         const cellValue = columns[col];
         const numericValue = parseNumericValue(cellValue);
@@ -413,8 +441,6 @@ function processCSV(csvContent: string): any[] {
           break;
         }
       }
-
-      // Estratégia 3: Descrição é geralmente a coluna com mais texto
       let longestText = '';
       for (let col = 1; col < columns.length - 2; col++) {
         if (columns[col] && columns[col].length > longestText.length && !isValidDate(columns[col]) && isNaN(parseFloat(columns[col].replace(/[^\d.,-]/g, '')))) {
@@ -422,8 +448,6 @@ function processCSV(csvContent: string): any[] {
         }
       }
       description = longestText || columns[1] || 'Transação';
-
-      // Estratégia 4: Procura por indicadores de tipo (débito/crédito)
       for (const col of columns) {
         const lowerCol = col.toLowerCase();
         if (lowerCol.includes('debito') || lowerCol.includes('débito') || lowerCol.includes('saida')) {
@@ -434,24 +458,19 @@ function processCSV(csvContent: string): any[] {
           break;
         }
       }
-
-      // Ajusta o sinal do valor baseado no tipo identificado
       if (operationType === 'debit' && amount > 0) {
         amount = -amount;
       } else if (operationType === 'credit' && amount < 0) {
         amount = Math.abs(amount);
       } else if (!operationType) {
-        // Se não identificou tipo, usa convenção: negativo = débito
         operationType = amount >= 0 ? 'credit' : 'debit';
       }
-
       if (date && description && !isNaN(amount) && amount !== 0) {
         transactions.push({
           date: normalizeDate(date),
           description: description.trim(),
           amount: amount
         });
-        
         console.log(`✅ Linha ${i + 1}: ${normalizeDate(date)} | ${description.trim()} | ${amount}`);
       } else {
         console.log(`⚠️ Linha ${i + 1} ignorada (dados insuficientes): data="${date}", desc="${description}", valor=${amount}`);
@@ -461,7 +480,6 @@ function processCSV(csvContent: string): any[] {
       console.warn(`❌ Erro na linha ${i + 1}:`, columns, error);
     }
   }
-
   console.log(`CSV processado: ${transactions.length} transações válidas de ${lines.length - startRow} linhas processadas`);
   return transactions;
 }
@@ -854,11 +872,72 @@ app.post('/make-server-651c9356/process-statement', async (c) => {
         if (statementFile.type === 'application/pdf') {
           console.log('📄 Processando arquivo PDF...');
           rawTransactions = await processPDF(statementFile);
-        } else if (statementFile.type === 'text/csv' || statementFile.name.endsWith('.csv')) {
-          console.log('📊 Processando arquivo CSV...');
-          const csvContent = await statementFile.text();
-          console.log(`CSV tem ${csvContent.length} caracteres`);
-          rawTransactions = processCSV(csvContent);
+        } else if (
+          statementFile.type === 'text/csv' || statementFile.name.endsWith('.csv') ||
+          statementFile.type === 'text/plain' || statementFile.name.endsWith('.txt')
+        ) {
+          // Trata TXT como extrato textual, usando Gemini para extrair transações
+          const isTxt = statementFile.type === 'text/plain' || statementFile.name.endsWith('.txt');
+          const label = isTxt ? 'TXT' : 'CSV';
+          console.log(`📊 Processando arquivo ${label}...`);
+          const content = await statementFile.text();
+          console.log(`${label} tem ${content.length} caracteres`);
+          if (isTxt) {
+            // Usa Gemini para processar TXT como extrato
+            const geminiApiKey = process.env.GEMINI_API_KEY;
+            if (geminiApiKey) {
+              try {
+                const prompt = `\nAnalise este extrato bancário em texto e extraia TODAS as transações encontradas.\nO arquivo pode ter diferentes formatos de bancos brasileiros (Bradesco, Itaú, Santander, Nubank, Inter, Caixa, etc).\n\nINSTRUÇÕES ESPECÍFICAS:\n1. Procure por TODAS as movimentações/transações no conteúdo, incluindo:\n   - Débitos (saídas, compras, transferências enviadas, saques, etc.)\n   - Créditos (entradas, salários, transferências recebidas, depósitos, etc.)\n   - PIX (enviados e recebidos)\n   - Cartão de débito/crédito\n   - DOCs e TEDs\n   - Boletos pagos\n   - Tarifas bancárias\n\n2. Para cada transação identifique:\n   - Data da transação (formato DD/MM/AAAA)\n   - Descrição/Histórico COMPLETO (inclua todos os detalhes disponíveis)\n   - Valor EXATO (positivo para créditos/entradas, negativo para débitos/saídas)\n\n3. IMPORTANTE sobre valores:\n   - Se o extrato mostra "- R$ 100,00" ou está em coluna de débito: use -100\n   - Se o extrato mostra "+ R$ 100,00" ou está em coluna de crédito: use 100\n   - Mantenha a precisão dos centavos\n\n4. IMPORTANTE sobre descrições:\n   - Mantenha o texto original do banco\n   - Inclua códigos de referência se houver\n   - Não abrevie ou simplifique\n\nResponda APENAS em formato JSON válido:\n{\n  "transactions": [\n    {\n      "date": "DD/MM/AAAA",\n      "description": "descrição completa exatamente como aparece",\n      "amount": valor_numerico_com_sinal_correto\n    }\n  ]\n}\n\nEXEMPLOS:\n- Bradesco: "PIX TRANSFERENCIA ENVIADA CHAVE EMAIL" → valor negativo\n- Itaú: "COMPRA CARTAO DEBITO SUPERMERCADO EXTRA" → valor negativo\n- Nubank: "Transferência enviada para João Silva" → valor negativo\n- Santander: "SALARIO EMPRESA LTDA" → valor positivo\n- Inter: "TED RECEBIDA DE MARIA SANTOS" → valor positivo\n\nNÃO inclua:\n- Saldos anteriores/posteriores\n- Títulos ou cabeçalhos\n- Linhas de resumo/totais\n- Informações de conta\n\nINCLUA TUDO que for movimentação financeira real.\n\nAQUI ESTÁ O CONTEÚDO DO EXTRATO EM TEXTO:\n\n"""\n${content}\n"""\n`;
+                const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiApiKey}`, {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    contents: [{ parts: [{ text: prompt }] }]
+                  })
+                });
+                if (!response.ok) {
+                  const errorText = await response.text();
+                  console.error('Erro na API Gemini (TXT):', errorText);
+                  throw new Error('Erro na API Gemini');
+                }
+                const data = await response.json();
+                const text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+                console.log('Resposta do Gemini para TXT:', text.substring(0, 500) + '...');
+                let jsonMatch = text.match(/\{[\s\S]*\}/);
+                if (!jsonMatch) {
+                  jsonMatch = text.match(/\[[\s\S]*\]/);
+                  if (jsonMatch) {
+                    const arrayData = JSON.parse(jsonMatch[0]);
+                    rawTransactions = Array.isArray(arrayData) ? arrayData : [];
+                  } else {
+                    throw new Error('Não foi possível extrair dados JSON da resposta do Gemini');
+                  }
+                } else {
+                  const extractedData = JSON.parse(jsonMatch[0]);
+                  const transactions = extractedData.transactions || extractedData || [];
+                  rawTransactions = transactions.filter((t: any) => {
+                    if (!t.date || !t.description || typeof t.amount !== 'number') {
+                      console.warn('Transação inválida ignorada:', t);
+                      return false;
+                    }
+                    return true;
+                  });
+                }
+                console.log(`TXT processado pelo Gemini: ${rawTransactions.length} transações válidas`);
+              } catch (error) {
+                console.error('Erro ao processar TXT com Gemini:', error);
+                rawTransactions = [];
+              }
+            } else {
+              console.warn('GEMINI_API_KEY não configurada. Não é possível processar TXT.');
+              rawTransactions = [];
+            }
+          } else {
+            // CSV normal
+            rawTransactions = await processCSV(content);
+          }
         } else {
           console.warn(`⚠️ Formato de arquivo não suportado ignorado: ${statementFile.type} (${statementFile.name})`);
           continue;

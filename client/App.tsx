@@ -345,7 +345,7 @@ export default function App() {
                   </li>
                   <li className="flex items-center">
                     <CheckCircle className="w-4 h-4 text-green-500 mr-2" />
-                    Formato PDF ou CSV
+                    Formato PDF, CSV ou TXT
                   </li>
                 </ul>
               </CardContent>
@@ -398,8 +398,8 @@ export default function App() {
                 </CardTitle>
                 <CardDescription>
                   {workflow === 'new' 
-                    ? 'Faça upload do seu extrato bancário (PDF ou CSV)'
-                    : 'Faça upload da planilha existente e do novo extrato bancário'
+                    ? 'Faça upload do seu extrato bancário (PDF, CSV ou TXT)'
+                    : 'Faça upload da planilha existente e do novo extrato bancário (PDF, CSV ou TXT)'
                   }
                 </CardDescription>
               </CardHeader>
@@ -424,7 +424,7 @@ export default function App() {
               </div>
               <h3 className="text-lg text-gray-900 mb-2">1. Upload</h3>
               <p className="text-gray-600 text-sm">
-                Faça upload do seu extrato bancário em formato PDF ou CSV
+                Faça upload do seu extrato bancário em formato PDF, CSV ou TXT
               </p>
             </div>
             <div className="text-center">

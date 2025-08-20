@@ -24,11 +24,11 @@ export function FileUploader({ workflow, onFileUpload, disabled }: FileUploaderP
     }
 
     if (type === 'statement') {
-      const allowedTypes = ['application/pdf', 'text/csv', 'application/vnd.ms-excel'];
-      const allowedExtensions = ['.pdf', '.csv'];
+      const allowedTypes = ['application/pdf', 'text/csv', 'application/vnd.ms-excel', 'text/plain'];
+      const allowedExtensions = ['.pdf', '.csv', '.txt'];
       
       if (!allowedTypes.includes(file.type) && !allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
-        return 'Formato inválido para extrato. Use PDF ou CSV.';
+        return 'Formato inválido para extrato. Use PDF, CSV ou TXT.';
       }
     } else {
       // Para planilhas existentes - aceita XLSX e CSV
@@ -232,8 +232,8 @@ export function FileUploader({ workflow, onFileUpload, disabled }: FileUploaderP
           </p>
           <p className="text-sm text-gray-500">
             {workflow === 'new' 
-              ? 'Formatos aceitos: PDF, CSV (múltiplos arquivos, máx. 10MB cada)'
-              : 'Extratos: PDF/CSV (múltiplos) | Planilha: XLSX/CSV (opcional, máx. 10MB cada)'
+              ? 'Formatos aceitos: PDF, CSV, TXT (múltiplos arquivos, máx. 10MB cada)'
+              : 'Extratos: PDF/CSV/TXT (múltiplos) | Planilha: XLSX/CSV (opcional, máx. 10MB cada)'
             }
           </p>
         </div>
@@ -242,7 +242,7 @@ export function FileUploader({ workflow, onFileUpload, disabled }: FileUploaderP
           ref={fileInputRef}
           type="file"
           className="hidden"
-          accept={workflow === 'new' ? '.pdf,.csv' : '.pdf,.csv,.xlsx'}
+          accept={workflow === 'new' ? '.pdf,.csv,.txt' : '.pdf,.csv,.txt,.xlsx'}
           multiple={true}
           onChange={handleFileSelect}
           disabled={disabled}
@@ -296,7 +296,7 @@ export function FileUploader({ workflow, onFileUpload, disabled }: FileUploaderP
                   onClick={() => fileInputRef.current?.click()}
                   disabled={disabled}
                 >
-                  Selecionar PDF/CSV (múltiplos)
+                  Selecionar PDF/CSV/TXT (múltiplos)
                 </Button>
                 <p className="text-xs text-gray-500 mt-1">Ctrl/Cmd + clique para múltiplos</p>
               </div>
