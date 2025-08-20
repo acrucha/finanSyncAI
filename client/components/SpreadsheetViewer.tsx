@@ -8,6 +8,9 @@ import { Input } from './ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from './ui/dialog';
 import { AlertTriangle, TrendingUp, TrendingDown, Plus, Edit, Trash2, Upload } from 'lucide-react';
 
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'localhost:3000';
+console.log(`Server URL: ${SERVER_URL}`);
+
 interface Transaction {
   id: string;
   date: string;
@@ -175,7 +178,7 @@ export function SpreadsheetViewer({ data, onAddTransactions }: SpreadsheetViewer
 
       console.log(`Enviando ${files.length} arquivo(s) para processamento:`, Array.from(files).map(f => f.name));
 
-      const response = await fetch('http://localhost:3000/make-server-651c9356/process-statement', {
+      const response = await fetch(`http://${SERVER_URL}/make-server-651c9356/process-statement`, {
         method: 'POST',
         body: formData
       });

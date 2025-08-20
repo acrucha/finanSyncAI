@@ -6,7 +6,9 @@ import { Alert, AlertDescription } from './components/ui/alert';
 import { FileUploader } from './components/FileUploader';
 import { SpreadsheetViewer } from './components/SpreadsheetViewer';
 import { LoadingState } from './components/LoadingState';
-import { projectId, publicAnonKey } from './info';
+
+const SERVER_URL = import.meta.env.VITE_SERVER_URL || 'localhost:3000';
+console.log(`Server URL: ${SERVER_URL}`);
 
 interface Transaction {
   id: string;
@@ -66,7 +68,7 @@ export default function App() {
 
       console.log(`Enviando ${files.length} arquivo(s) para processamento (workflow: ${workflow}):`, Array.from(files).map(f => f.name));
 
-      const response = await fetch(`http://localhost:3000/make-server-651c9356/process-statement`, {
+      const response = await fetch(`http://${SERVER_URL}/make-server-651c9356/process-statement`, {
         method: 'POST',
         body: formData
       });
@@ -105,7 +107,7 @@ export default function App() {
     if (!spreadsheetData) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/make-server-651c9356/export-spreadsheet`, {
+      const response = await fetch(`http://${SERVER_URL}/make-server-651c9356/export-spreadsheet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +149,7 @@ export default function App() {
     if (!spreadsheetData) return;
 
     try {
-      const response = await fetch(`http://localhost:3000/make-server-651c9356/export-spreadsheet`, {
+      const response = await fetch(`http://${SERVER_URL}/make-server-651c9356/export-spreadsheet`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
